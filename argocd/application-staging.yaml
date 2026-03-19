@@ -1,3 +1,6 @@
+# ArgoCD Application manifest – STAGING environment
+# Mirrors the dev manifest but uses staging value overrides:
+# 2–4 replicas with HPA, production-like resource limits.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -11,14 +14,14 @@ spec:
     path: helm/ordermanager
     helm:
       valueFiles:
-        - values.yaml
-        - values-staging.yaml
+        - values.yaml            # base (production) defaults
+        - values-staging.yaml    # staging overrides: 2+ replicas, HPA, larger resource limits
   destination:
     server: https://kubernetes.default.svc
     namespace: decomposition-staging
   syncPolicy:
     automated:
-      prune: true
-      selfHeal: true
+      prune: true        # delete resources removed from Git
+      selfHeal: true     # revert manual cluster changes back to Git state
     syncOptions:
       - CreateNamespace=true

@@ -1,3 +1,6 @@
+# HorizontalPodAutoscaler — only created when autoscaling.enabled is true.
+# Scales the Deployment between minReplicas and maxReplicas based on
+# average CPU utilization across all pods.
 {{- if .Values.autoscaling.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler

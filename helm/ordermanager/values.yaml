@@ -1,15 +1,26 @@
+# ─────────────────────────────────────────────────────────────
+# Base Helm values for the OrderManager monolith.
+# These act as production defaults. Environment-specific files
+# (values-dev.yaml, values-staging.yaml) override individual
+# keys via the ArgoCD valueFiles merge order.
+# ─────────────────────────────────────────────────────────────
+
+# Number of pod replicas (overridden by HPA when autoscaling is enabled)
 replicaCount: 1
 
+# Container image coordinates (ECR)
 image:
   repository: 599083837640.dkr.ecr.us-east-1.amazonaws.com/workshop/ordermanager
   tag: latest
   pullPolicy: IfNotPresent
 
+# Kubernetes Service: ClusterIP on port 80 → container port 8080
 service:
   type: ClusterIP
   port: 80
   targetPort: 8080
 
+# NGINX Ingress with TLS via cert-manager (Let's Encrypt)
 ingress:
   enabled: true
   className: nginx
@@ -21,6 +32,7 @@ ingress:
         - path: /
           pathType: Prefix
 
+# Pod resource requests and limits
 resources:
   requests:
     cpu: 100m
@@ -29,23 +41,27 @@ resources:
     cpu: 500m
     memory: 512Mi
 
+# Horizontal Pod Autoscaler (disabled by default; enabled in staging)
 autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 3
   targetCPUUtilizationPercentage: 80
 
+# Environment variables injected into the container
 env:
   - name: ASPNETCORE_ENVIRONMENT
     value: Production
   - name: ConnectionStrings__DefaultConnection
-    value: "Data Source=/data/ordermanager.db"
+    value: "Data Source=/data/ordermanager.db"   # persistent path when persistence is enabled
 
+# SQLite database persistence (PVC)
 persistence:
   enabled: true
   size: 1Gi
-  storageClass: gp2
+  storageClass: gp2     # AWS EBS General Purpose SSD
 
+# Prometheus monitoring via ServiceMonitor CRD
 monitoring:
   enabled: true
   path: /metrics

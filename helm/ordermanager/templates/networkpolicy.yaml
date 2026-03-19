@@ -1,3 +1,7 @@
+# NetworkPolicy — enforces zero-trust networking for OrderManager pods.
+# Ingress: only the NGINX ingress controller and (optionally) the
+#   Prometheus monitoring namespace can reach the pods.
+# Egress: pods can only talk to DNS (port 53) and HTTPS (port 443).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -12,6 +16,7 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # Allow traffic from the NGINX ingress controller namespace
     - from:
         - namespaceSelector:
             matchLabels:
@@ -19,6 +24,7 @@ spec:
       ports:
         - protocol: TCP
           port: {{ .Values.service.targetPort }}
+    # Allow Prometheus scraping from the monitoring namespace
     {{- if .Values.monitoring.enabled }}
     - from:
         - namespaceSelector:
@@ -29,12 +35,14 @@ spec:
           port: {{ .Values.monitoring.port }}
     {{- end }}
   egress:
+    # DNS resolution (UDP + TCP on port 53)
     - to: []
       ports:
         - protocol: UDP
           port: 53
         - protocol: TCP
           port: 53
+    # Outbound HTTPS (e.g., for external API calls if needed)
     - to: []
       ports:
         - protocol: TCP

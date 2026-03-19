@@ -1,3 +1,10 @@
+# ─────────────────────────────────────────────────────────────
+# CI/CD pipeline: build the OrderManager Docker image, run
+# tests, and push to Amazon ECR.
+#
+# Triggered on pushes and PRs to main. Uses OIDC (id-token)
+# to assume an IAM role—no static AWS credentials needed.
+# ─────────────────────────────────────────────────────────────
 name: Build and Push to ECR
 
 on:
@@ -6,41 +13,47 @@ on:
   pull_request:
     branches: [main]
 
+# Shared environment variables used across all steps
 env:
   AWS_REGION: us-east-1
   ECR_REGISTRY: 599083837640.dkr.ecr.us-east-1.amazonaws.com
   ECR_REPOSITORY: workshop/ordermanager
-  IMAGE_TAG: ${{ github.sha }}
+  IMAGE_TAG: ${{ github.sha }}   # every image is tagged with the commit SHA for traceability
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
-      contents: read
+      id-token: write   # required for OIDC-based AWS authentication
+      contents: read     # required for actions/checkout
 
     steps:
+      # Checkout the application source code from the monolith repo
       - name: Checkout app code
         uses: actions/checkout@v4
         with:
           repository: Cognition-Partner-Workshops/app_dotnet-angular-monolith
           path: app
 
+      # Checkout this IaC repo so we can reference docker/Dockerfile
       - name: Checkout IaC
         uses: actions/checkout@v4
         with:
           path: iac
 
+      # Authenticate to AWS using GitHub OIDC federation (no secrets stored in repo)
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::599083837640:role/github-actions-ecr-push
           aws-region: ${{ env.AWS_REGION }}
 
+      # Obtain a short-lived ECR auth token
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      # Build the multi-stage Docker image and push with both SHA and "latest" tags
       - name: Build and push Docker image
         working-directory: app
         run: |
@@ -48,6 +61,7 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
+      # Run .NET unit/integration tests to catch regressions before deploy
       - name: Run .NET tests
         working-directory: app
         run: dotnet test --verbosity normal

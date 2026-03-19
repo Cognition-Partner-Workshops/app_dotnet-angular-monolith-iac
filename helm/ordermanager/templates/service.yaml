@@ -1,3 +1,6 @@
+# ClusterIP Service — exposes the OrderManager pods internally on port 80.
+# The Ingress routes external traffic to this Service, which forwards to
+# the container's targetPort (8080).
 apiVersion: v1
 kind: Service
 metadata:
@@ -7,8 +10,8 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.targetPort }}
+    - port: {{ .Values.service.port }}          # cluster-internal port
+      targetPort: {{ .Values.service.targetPort }} # container port (8080)
       protocol: TCP
       name: http
   selector:

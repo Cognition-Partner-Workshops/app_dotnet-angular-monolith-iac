@@ -1,24 +1,27 @@
+# ArgoCD Application manifest – DEVELOPMENT environment
+# ArgoCD watches the "main" branch of this IaC repo and continuously
+# reconciles the Kubernetes state to match the Helm chart output.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: ordermanager-dev
-  namespace: argocd
+  namespace: argocd          # ArgoCD's own namespace where it discovers Application CRDs
 spec:
-  project: default
+  project: default           # ArgoCD project (RBAC boundary); "default" allows any cluster/namespace
   source:
     repoURL: https://github.com/Cognition-Partner-Workshops/app_dotnet-angular-monolith-iac.git
-    targetRevision: main
-    path: helm/ordermanager
+    targetRevision: main     # track the main branch for continuous delivery
+    path: helm/ordermanager  # path to the Helm chart within the repo
     helm:
       valueFiles:
-        - values.yaml
-        - values-dev.yaml
+        - values.yaml        # base (production) defaults
+        - values-dev.yaml    # dev overrides: 1 replica, smaller resources, no persistence
   destination:
-    server: https://kubernetes.default.svc
-    namespace: decomposition-dev
+    server: https://kubernetes.default.svc   # deploy to the same cluster ArgoCD runs in
+    namespace: decomposition-dev             # isolated namespace for the dev environment
   syncPolicy:
     automated:
-      prune: true
-      selfHeal: true
+      prune: true            # delete resources removed from Git
+      selfHeal: true         # revert manual cluster changes back to Git state
     syncOptions:
-      - CreateNamespace=true
+      - CreateNamespace=true # auto-create the namespace if it doesn't exist yet

@@ -1,3 +1,6 @@
+# Deployment for the OrderManager monolith container.
+# When autoscaling is enabled the HPA controls replica count;
+# otherwise the static replicaCount value is used.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,7 +9,7 @@ metadata:
     {{- include "ordermanager.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.replicaCount }}   # static count; omitted when HPA manages replicas
   {{- end }}
   selector:
     matchLabels:
@@ -30,12 +33,14 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          # Liveness: restarts the pod if /health stops responding (e.g., deadlock)
           livenessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 15
+            initialDelaySeconds: 15   # give the app time to start before first check
             periodSeconds: 20
+          # Readiness: removes the pod from Service endpoints until /health returns 200
           readinessProbe:
             httpGet:
               path: /health
