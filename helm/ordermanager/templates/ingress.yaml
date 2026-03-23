@@ -1,3 +1,10 @@
+# ==============================================================================
+# Ingress — Configures external HTTP access to the OrderManager application.
+# This resource is conditionally created based on .Values.ingress.enabled.
+# It defines hostname-based routing rules that direct traffic from the NGINX
+# Ingress Controller to the OrderManager Service. TLS can be configured via
+# cert-manager annotations in the values files.
+# ==============================================================================
 {{- if .Values.ingress.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -5,24 +12,41 @@ metadata:
   name: {{ include "ordermanager.fullname" . }}
   labels:
     {{- include "ordermanager.labels" . | nindent 4 }}
+  # Annotations support additional Ingress Controller features such as
+  # TLS certificate provisioning via cert-manager. The cluster-issuer
+  # annotation (e.g., letsencrypt-staging) tells cert-manager which
+  # issuer to use for automatic TLS certificate generation.
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
+  # ingressClassName selects which Ingress Controller handles this resource.
+  # "nginx" targets the NGINX Ingress Controller deployed in the cluster.
   ingressClassName: {{ .Values.ingress.className }}
   rules:
+    # Iterate over each host entry defined in values. Each environment
+    # (dev, staging) specifies its own hostname for routing.
     {{- range .Values.ingress.hosts }}
     - host: {{ .host | quote }}
       http:
         paths:
+          # Iterate over path rules for each host. Typically a single "/"
+          # Prefix rule that routes all traffic to the OrderManager backend.
           {{- range .paths }}
           - path: {{ .path }}
+            # pathType: Prefix means this rule matches the path and all sub-paths.
+            # This is appropriate for a monolith that serves both API endpoints
+            # and static Angular assets from the same container.
             pathType: {{ .pathType }}
             backend:
               service:
+                # Routes to the OrderManager Service by its generated fullname.
+                # Uses $ (root context) because we are inside a range loop.
                 name: {{ include "ordermanager.fullname" $ }}
                 port:
+                  # Connects to the Service's port (80), which forwards to
+                  # the container's targetPort (8080).
                   number: {{ $.Values.service.port }}
           {{- end }}
     {{- end }}

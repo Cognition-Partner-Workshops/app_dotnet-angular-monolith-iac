@@ -1,3 +1,9 @@
+# ==============================================================================
+# Service — Exposes the OrderManager Deployment within the cluster.
+# This ClusterIP Service provides a stable internal DNS name and IP address
+# for other resources (e.g., Ingress) to route traffic to the application pods.
+# It maps the external service port (80) to the container's target port (8080).
+# ==============================================================================
 apiVersion: v1
 kind: Service
 metadata:
@@ -5,11 +11,19 @@ metadata:
   labels:
     {{- include "ordermanager.labels" . | nindent 4 }}
 spec:
+  # ClusterIP is the default type — the service is only reachable from within
+  # the cluster. External access is handled by the Ingress resource instead.
   type: {{ .Values.service.type }}
   ports:
+      # port: The port exposed on the Service's cluster IP (typically 80 for HTTP).
+      # targetPort: The port the container is actually listening on (8080).
+      # This mapping allows consumers to connect on standard HTTP port 80 while
+      # the .NET app listens on its configured port 8080 internally.
     - port: {{ .Values.service.port }}
       targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
       name: http
+  # Selector labels match pods managed by the Deployment, ensuring traffic
+  # is routed only to healthy, running OrderManager pods.
   selector:
     {{- include "ordermanager.selectorLabels" . | nindent 4 }}

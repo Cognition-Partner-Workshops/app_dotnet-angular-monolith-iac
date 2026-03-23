@@ -1,24 +1,57 @@
+# ==============================================================================
+# ArgoCD Application — Staging Environment
+# This manifest defines a GitOps-managed deployment of the OrderManager
+# application to the "decomposition-staging" namespace. Staging mirrors
+# production configuration more closely than dev, with autoscaling enabled
+# and higher resource allocations. It serves as the final validation
+# environment before changes are promoted to production.
+# ==============================================================================
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  # Unique name for this ArgoCD Application. The "-staging" suffix distinguishes
+  # it from dev and production Application resources.
   name: ordermanager-staging
+  # ArgoCD Applications must live in the argocd namespace where the
+  # ArgoCD controller is installed and has permissions to manage them.
   namespace: argocd
 spec:
+  # "default" project — ArgoCD projects provide RBAC boundaries for
+  # Applications. The default project allows deploying to any namespace
+  # and cluster. Use dedicated projects for stricter access control.
   project: default
   source:
+    # Git repository containing the Helm chart and values files.
     repoURL: https://github.com/Cognition-Partner-Workshops/app_dotnet-angular-monolith-iac.git
+    # Track the main branch — any merge to main triggers a sync.
     targetRevision: main
+    # Path within the repo to the Helm chart directory.
     path: helm/ordermanager
     helm:
+      # Values files are applied in order: values.yaml provides base defaults,
+      # then values-staging.yaml overrides with staging-specific settings
+      # (autoscaling enabled, 2+ replicas, production-level resources).
       valueFiles:
         - values.yaml
         - values-staging.yaml
   destination:
+    # Deploy to the in-cluster API server (the same cluster ArgoCD runs on).
+    # For multi-cluster setups, this would be a remote cluster API URL.
     server: https://kubernetes.default.svc
+    # Target namespace for all rendered Kubernetes resources.
+    # "decomposition-staging" isolates staging workloads from dev/production.
     namespace: decomposition-staging
   syncPolicy:
+    # Automated sync — ArgoCD applies changes automatically when it detects
+    # drift between the Git source and the live cluster state.
     automated:
+      # prune: Delete resources from the cluster that are no longer defined
+      # in Git. Prevents orphaned resources from accumulating over time.
       prune: true
+      # selfHeal: Revert any manual changes made directly to the cluster
+      # (e.g., via kubectl edit). Ensures Git remains the single source of truth.
       selfHeal: true
     syncOptions:
+      # Automatically create the target namespace if it doesn't exist.
+      # Useful for initial deployments and disaster recovery scenarios.
       - CreateNamespace=true

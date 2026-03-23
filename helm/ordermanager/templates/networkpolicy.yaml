@@ -1,3 +1,9 @@
+# ==============================================================================
+# NetworkPolicy — Restricts network traffic to and from OrderManager pods.
+# Implements a least-privilege network model: only explicitly allowed traffic
+# is permitted. This is critical for security in a multi-tenant Kubernetes
+# cluster, preventing unauthorized lateral movement between namespaces.
+# ==============================================================================
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -5,13 +11,20 @@ metadata:
   labels:
     {{- include "ordermanager.labels" . | nindent 4 }}
 spec:
+  # Apply this policy to all pods matching the OrderManager selector labels.
   podSelector:
     matchLabels:
       {{- include "ordermanager.selectorLabels" . | nindent 6 }}
+  # Enforce both Ingress and Egress rules. Without explicit policyTypes,
+  # only Ingress is enforced. Listing both ensures outbound traffic is
+  # also restricted to known-good destinations.
   policyTypes:
     - Ingress
     - Egress
   ingress:
+    # Rule 1: Allow inbound HTTP traffic from the NGINX Ingress Controller.
+    # The ingress-nginx namespace hosts the cluster's Ingress Controller,
+    # which is the only entry point for external user traffic.
     - from:
         - namespaceSelector:
             matchLabels:
@@ -19,6 +32,9 @@ spec:
       ports:
         - protocol: TCP
           port: {{ .Values.service.targetPort }}
+    # Rule 2 (conditional): Allow inbound metrics scraping from Prometheus.
+    # Only created when monitoring is enabled. The monitoring namespace
+    # contains the Prometheus Operator and its ServiceMonitor CRDs.
     {{- if .Values.monitoring.enabled }}
     - from:
         - namespaceSelector:
@@ -29,12 +45,20 @@ spec:
           port: {{ .Values.monitoring.port }}
     {{- end }}
   egress:
+    # Rule 1: Allow DNS resolution (UDP and TCP on port 53).
+    # Required for the application to resolve internal service names
+    # (e.g., database endpoints) and external hostnames. Without this,
+    # the pods cannot perform any DNS lookups.
     - to: []
       ports:
         - protocol: UDP
           port: 53
         - protocol: TCP
           port: 53
+    # Rule 2: Allow outbound HTTPS traffic (port 443).
+    # Permits the application to make secure API calls to external services
+    # (e.g., cloud APIs, third-party integrations). All other outbound
+    # ports are blocked by default.
     - to: []
       ports:
         - protocol: TCP

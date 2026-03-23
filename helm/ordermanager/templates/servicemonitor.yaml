@@ -1,3 +1,9 @@
+# ==============================================================================
+# ServiceMonitor — Configures Prometheus metrics scraping for OrderManager.
+# This is a Custom Resource Definition (CRD) from the Prometheus Operator.
+# It tells Prometheus how to discover and scrape metrics from the application
+# pods. Only created when .Values.monitoring.enabled is true.
+# ==============================================================================
 {{- if .Values.monitoring.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -6,10 +12,16 @@ metadata:
   labels:
     {{- include "ordermanager.labels" . | nindent 4 }}
 spec:
+  # selector matches the OrderManager Service by its labels, telling Prometheus
+  # which Service endpoints to scrape for metrics data.
   selector:
     matchLabels:
       {{- include "ordermanager.selectorLabels" . | nindent 6 }}
   endpoints:
+    # Scrape the "http" port (8080) at the configured metrics path.
+    # The .NET app exposes Prometheus-format metrics at /metrics.
+    # interval: 30s defines how frequently Prometheus collects metrics —
+    # a balance between data freshness and scraping overhead.
     - port: http
       path: {{ .Values.monitoring.path }}
       interval: 30s

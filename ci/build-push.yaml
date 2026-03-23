@@ -1,46 +1,92 @@
+# ==============================================================================
+# GitHub Actions CI/CD Pipeline — Build and Push to Amazon ECR.
+# This workflow builds the OrderManager Docker image (containing both the
+# .NET API and Angular frontend) and pushes it to Amazon ECR. It uses
+# a multi-repo checkout strategy: the application source code is in one
+# repo while the Dockerfile lives in this IaC repo.
+#
+# Authentication: Uses GitHub OIDC (OpenID Connect) to assume an IAM role
+# in AWS, eliminating the need for long-lived access keys stored as secrets.
+# ==============================================================================
 name: Build and Push to ECR
 
+# Trigger conditions for the pipeline.
 on:
+  # Run on every push to main (e.g., merged PRs). This builds and pushes
+  # the "latest" production image to ECR.
   push:
     branches: [main]
+  # Run on pull requests targeting main. This validates the build succeeds
+  # but the pushed image is tagged with the PR's commit SHA (not "latest").
   pull_request:
     branches: [main]
 
+# Global environment variables available to all jobs and steps.
 env:
+  # AWS region where the ECR registry is hosted.
   AWS_REGION: us-east-1
+  # Full ECR registry URI (AWS account ID + region).
   ECR_REGISTRY: 599083837640.dkr.ecr.us-east-1.amazonaws.com
+  # ECR repository name within the registry. Images are pushed here
+  # with both a SHA-based tag and a "latest" tag.
   ECR_REPOSITORY: workshop/ordermanager
+  # Tag each image with the Git commit SHA for traceability. This creates
+  # an immutable, audit-friendly link between a deployed image and its
+  # exact source code version.
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
+      # id-token: write — Required for GitHub OIDC authentication with AWS.
+      # This allows the workflow to request a JWT token that AWS STS can
+      # exchange for temporary credentials, eliminating static access keys.
       id-token: write
+      # contents: read — Required to checkout the repository code.
       contents: read
 
     steps:
+      # Step 1: Checkout the application source code from the companion repo.
+      # The app repo contains the .NET solution, Angular client-app, and tests.
+      # It's checked out into the "app" directory to keep it separate from
+      # the IaC repo checkout below.
       - name: Checkout app code
         uses: actions/checkout@v4
         with:
           repository: Cognition-Partner-Workshops/app_dotnet-angular-monolith
           path: app
 
+      # Step 2: Checkout this IaC repository (containing the Dockerfile).
+      # Checked out into the "iac" directory. The Docker build references
+      # the Dockerfile at ../iac/docker/Dockerfile relative to the app directory.
       - name: Checkout IaC
         uses: actions/checkout@v4
         with:
           path: iac
 
+      # Step 3: Configure AWS credentials using OIDC federation.
+      # The role-to-assume ARN points to an IAM role with permissions to
+      # push images to ECR. GitHub's OIDC provider is trusted by this role,
+      # so no static secrets are needed — just a federated identity trust.
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::599083837640:role/github-actions-ecr-push
           aws-region: ${{ env.AWS_REGION }}
 
+      # Step 4: Authenticate Docker with Amazon ECR.
+      # This step retrieves a temporary auth token from ECR and configures
+      # the Docker CLI to use it, enabling docker push to the ECR registry.
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      # Step 5: Build the multi-stage Docker image and push to ECR.
+      # The build context is the "app" directory (application source code),
+      # but the Dockerfile is referenced from the "iac" repo. Two tags are
+      # applied: the commit SHA (for immutable versioning) and "latest"
+      # (for convenience and ArgoCD auto-sync with default values.yaml).
       - name: Build and push Docker image
         working-directory: app
         run: |
@@ -48,6 +94,11 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
+      # Step 6: Run .NET unit tests to validate the build.
+      # Tests run after the Docker build to catch any regressions.
+      # If tests fail, the workflow fails and the image (already pushed)
+      # should not be deployed. Consider moving tests before push in
+      # production pipelines for stricter gate control.
       - name: Run .NET tests
         working-directory: app
         run: dotnet test --verbosity normal

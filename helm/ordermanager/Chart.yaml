@@ -1,6 +1,34 @@
+# ==============================================================================
+# Chart.yaml — Metadata for the OrderManager Helm chart.
+# This file defines the chart's identity, version, and compatibility.
+# Helm uses this metadata for chart repository indexing, dependency
+# resolution, and version management during deployments.
+# ==============================================================================
+
+# apiVersion v2 indicates this is a Helm 3 chart. Helm 3 removed Tiller
+# and introduced this schema version with support for library charts
+# and improved dependency management.
 apiVersion: v2
+
+# The chart name — used as the default resource name prefix and for
+# chart repository identification. Must be lowercase and hyphen-separated.
 name: ordermanager
+
+# Human-readable description displayed in chart repositories and
+# `helm search` results.
 description: Helm chart for the OrderManager monolith application
+
+# "application" type means this chart deploys a workload directly.
+# The alternative "library" type provides reusable templates only
+# and cannot be installed on its own.
 type: application
+
+# Chart version — follows SemVer. Increment this when making changes
+# to the chart templates, helpers, or default values. This version is
+# independent of the application version (appVersion below).
 version: 0.1.0
+
+# The version of the OrderManager application this chart deploys.
+# Displayed in `helm list` output for operational visibility. Updated
+# when a new application release is packaged with this chart.
 appVersion: "1.0.0"

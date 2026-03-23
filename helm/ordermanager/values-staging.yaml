@@ -1,15 +1,32 @@
+# ==============================================================================
+# values-staging.yaml — Staging environment overrides.
+# This file is layered on top of values.yaml when deploying to the
+# "decomposition-staging" namespace. Staging mirrors production more closely
+# than dev: it enables autoscaling, uses higher resource limits, and runs
+# multiple replicas for high-availability testing.
+# ==============================================================================
+
+# Two replicas provide baseline redundancy and allow testing of
+# load balancing behavior before promoting to production.
 replicaCount: 2
 
 image:
+  # Staging-specific image tag. CI tags staging builds with "staging-latest"
+  # to distinguish them from dev and production images.
   tag: staging-latest
 
 ingress:
   hosts:
+    # Staging-specific hostname for routing. Uses a "-staging" suffix to
+    # differentiate from dev and production Ingress rules on the same cluster.
     - host: ordermanager-staging.workshop.local
       paths:
         - path: /
           pathType: Prefix
 
+# Staging resource allocations match production defaults (values.yaml) to
+# ensure performance characteristics are representative of the production
+# environment. This helps catch resource-related issues before production.
 resources:
   requests:
     cpu: 100m
@@ -18,8 +35,14 @@ resources:
     cpu: 500m
     memory: 512Mi
 
+# Autoscaling is enabled in staging to validate HPA behavior under load.
+# This ensures the scaling configuration works correctly before production.
 autoscaling:
   enabled: true
+  # Minimum of 2 replicas ensures high availability even during low traffic.
   minReplicas: 2
+  # Cap at 4 replicas to control staging costs while still testing scale-out.
   maxReplicas: 4
+  # Slightly lower CPU threshold (75% vs 80% in base) to trigger scaling
+  # earlier in staging, making it easier to observe and validate HPA behavior.
   targetCPUUtilizationPercentage: 75

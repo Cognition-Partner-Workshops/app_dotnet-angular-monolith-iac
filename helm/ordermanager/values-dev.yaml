@@ -1,15 +1,31 @@
+# ==============================================================================
+# values-dev.yaml — Development environment overrides.
+# This file is layered on top of values.yaml when deploying to the
+# "decomposition-dev" namespace. It configures lighter resource allocations,
+# a dev-specific image tag, and disables persistence (SQLite is ephemeral
+# in dev to simplify iteration and avoid stale data issues).
+# ==============================================================================
+
+# Single replica is sufficient for development — no need for HA.
 replicaCount: 1
 
 image:
+  # Dev-specific image tag. The CI pipeline tags dev builds with "dev-latest"
+  # to distinguish them from staging/production images.
   tag: dev-latest
 
 ingress:
   hosts:
+    # Dev-specific hostname for routing. Uses a "-dev" suffix to differentiate
+    # from staging and production Ingress rules on the same cluster.
     - host: ordermanager-dev.workshop.local
       paths:
         - path: /
           pathType: Prefix
 
+# Reduced resource allocations for development. Dev workloads are lighter
+# and don't require production-level CPU/memory. This also allows more
+# dev deployments to fit on shared cluster nodes.
 resources:
   requests:
     cpu: 50m
@@ -19,10 +35,18 @@ resources:
     memory: 256Mi
 
 env:
+  # "Development" mode enables detailed error pages, verbose logging,
+  # and other developer-friendly runtime behaviors in the .NET app.
   - name: ASPNETCORE_ENVIRONMENT
     value: Development
+  # In dev, the SQLite database is stored in the container's local filesystem
+  # (no /data/ prefix) since persistence is disabled. The database is
+  # recreated each time the pod restarts, ensuring a clean state.
   - name: ConnectionStrings__DefaultConnection
     value: "Data Source=ordermanager.db"
 
+# Persistence disabled in dev — the database is ephemeral. This simplifies
+# development by avoiding PVC lifecycle management and ensures each
+# deployment starts with a fresh database from EF Core migrations.
 persistence:
   enabled: false

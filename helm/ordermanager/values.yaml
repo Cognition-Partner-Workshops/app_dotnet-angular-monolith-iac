@@ -1,26 +1,62 @@
+# ==============================================================================
+# values.yaml — Base (default) configuration for the OrderManager Helm chart.
+# This file defines the default values for all configurable parameters.
+# Environment-specific overrides are in values-dev.yaml and values-staging.yaml.
+# When deploying, Helm merges these files: base values are loaded first, then
+# environment-specific values override matching keys.
+# ==============================================================================
+
+# Number of pod replicas to run. Set to 1 for base/production.
+# Ignored when autoscaling.enabled is true (HPA manages replica count instead).
 replicaCount: 1
 
+# Container image configuration for the OrderManager application.
 image:
+  # ECR repository URI in the workshop AWS account (us-east-1).
+  # The CI/CD pipeline (build-push.yaml) pushes built images here.
   repository: 599083837640.dkr.ecr.us-east-1.amazonaws.com/workshop/ordermanager
+  # Image tag — overridden per environment (dev-latest, staging-latest).
+  # "latest" is used as the base default for production-like deployments.
   tag: latest
+  # IfNotPresent: Only pull the image if it's not already cached on the node.
+  # This reduces startup time and avoids unnecessary network traffic.
+  # Use "Always" if using mutable tags that may change without tag updates.
   pullPolicy: IfNotPresent
 
+# Kubernetes Service configuration.
 service:
+  # ClusterIP: The service is only accessible within the cluster.
+  # External traffic reaches the app through the Ingress resource.
   type: ClusterIP
+  # Port exposed by the Service (standard HTTP port for consumers).
   port: 80
+  # Port the .NET container actually listens on (set via ASPNETCORE_URLS).
   targetPort: 8080
 
+# Ingress configuration for external HTTP routing.
 ingress:
+  # Enable/disable the Ingress resource. Set to true to expose the app externally.
   enabled: true
+  # Ingress class name — selects the NGINX Ingress Controller in the cluster.
   className: nginx
+  # Annotations for additional Ingress Controller behavior.
   annotations:
+    # Instructs cert-manager to automatically provision TLS certificates
+    # using the letsencrypt-staging ClusterIssuer. Switch to "letsencrypt-prod"
+    # for production-trusted certificates.
     cert-manager.io/cluster-issuer: letsencrypt-staging
+  # Host-based routing rules. Each environment overrides the hostname.
   hosts:
     - host: ordermanager.workshop.local
       paths:
+        # Root path with Prefix type routes all requests (including sub-paths)
+        # to the OrderManager backend, which serves both API and Angular SPA.
         - path: /
           pathType: Prefix
 
+# Pod resource requests and limits.
+# Requests: Minimum resources guaranteed to the pod (used for scheduling).
+# Limits: Maximum resources the pod can consume (enforced by kubelet).
 resources:
   requests:
     cpu: 100m
@@ -29,24 +65,50 @@ resources:
     cpu: 500m
     memory: 512Mi
 
+# Horizontal Pod Autoscaler (HPA) configuration.
 autoscaling:
+  # Disabled by default. Enabled in staging (values-staging.yaml) where
+  # traffic patterns are less predictable and auto-scaling is beneficial.
   enabled: false
+  # Minimum number of replicas the HPA will maintain.
   minReplicas: 1
+  # Maximum replicas — caps scaling to control costs and resource usage.
   maxReplicas: 3
+  # Target CPU utilization percentage. When average CPU across pods exceeds
+  # this threshold, the HPA scales up. 80% is a common starting point that
+  # balances responsiveness with resource efficiency.
   targetCPUUtilizationPercentage: 80
 
+# Environment variables injected into the application container.
 env:
+  # Controls the .NET runtime behavior (logging verbosity, error pages, etc.).
+  # "Production" enables optimized settings; "Development" enables detailed errors.
   - name: ASPNETCORE_ENVIRONMENT
     value: Production
+  # SQLite connection string. Uses double-underscore notation (__) because
+  # .NET configuration maps this to ConnectionStrings:DefaultConnection.
+  # The /data/ path points to a persistent volume when persistence is enabled,
+  # ensuring the database survives pod restarts.
   - name: ConnectionStrings__DefaultConnection
     value: "Data Source=/data/ordermanager.db"
 
+# Persistent volume configuration for SQLite database storage.
 persistence:
+  # When enabled, a PersistentVolumeClaim is created to store the SQLite database
+  # file, ensuring data survives pod restarts and rescheduling.
   enabled: true
+  # Storage size for the persistent volume.
   size: 1Gi
+  # AWS EBS General Purpose SSD storage class. Provides a balance of price
+  # and performance suitable for a SQLite database workload.
   storageClass: gp2
 
+# Prometheus monitoring configuration.
 monitoring:
+  # Enable/disable the ServiceMonitor CRD for Prometheus metrics scraping.
   enabled: true
+  # Path where the .NET app exposes Prometheus-format metrics.
   path: /metrics
+  # Port used by Prometheus to scrape metrics (same as the app's HTTP port).
+  # Also referenced in the NetworkPolicy to allow monitoring namespace access.
   port: 8080

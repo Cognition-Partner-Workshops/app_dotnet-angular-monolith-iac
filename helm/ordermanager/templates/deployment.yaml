@@ -1,3 +1,10 @@
+# ==============================================================================
+# Deployment — Manages the OrderManager application pods.
+# This resource defines the desired state for the .NET + Angular monolith,
+# including container image, environment variables, resource limits, and
+# health checks. Kubernetes ensures the specified number of pod replicas
+# are running and handles rolling updates when the spec changes.
+# ==============================================================================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,10 +12,16 @@ metadata:
   labels:
     {{- include "ordermanager.labels" . | nindent 4 }}
 spec:
+  # When autoscaling (HPA) is enabled, the HPA controller manages replica count
+  # dynamically. In that case, we omit the static replicas field to avoid
+  # conflicts between the Deployment spec and the HPA's scaling decisions.
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
+    # matchLabels must correspond to the pod template labels below.
+    # These selectors are immutable after creation and link the Deployment
+    # to its managed pods for scaling and rolling update operations.
     matchLabels:
       {{- include "ordermanager.selectorLabels" . | nindent 6 }}
   template:
@@ -18,24 +31,43 @@ spec:
     spec:
       containers:
         - name: {{ .Chart.Name }}
+          # Image is pulled from Amazon ECR. The tag is overridden per environment
+          # (e.g., dev-latest, staging-latest) via values-dev.yaml / values-staging.yaml.
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          # IfNotPresent avoids redundant pulls when the tag hasn't changed,
+          # reducing startup time and network usage.
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
+              # The .NET app listens on this port inside the container.
+              # Configured via ASPNETCORE_URLS in the Dockerfile (default 8080).
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+          # Environment variables injected into the container. Typically includes
+          # ASPNETCORE_ENVIRONMENT (Development/Production) and the SQLite
+          # connection string. Defined in values.yaml and overridden per environment.
           {{- if .Values.env }}
           env:
             {{- toYaml .Values.env | nindent 12 }}
           {{- end }}
+          # Resource requests and limits ensure fair scheduling and prevent
+          # runaway memory/CPU usage. Dev environments use smaller allocations
+          # while staging/production use larger ones.
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          # Liveness probe — Kubernetes restarts the container if this check fails
+          # repeatedly. The /health endpoint is exposed by the .NET app.
+          # initialDelaySeconds gives the app time to start before probing begins.
           livenessProbe:
             httpGet:
               path: /health
               port: http
             initialDelaySeconds: 15
             periodSeconds: 20
+          # Readiness probe — Kubernetes removes the pod from Service endpoints
+          # if this check fails, preventing traffic from reaching an unhealthy
+          # instance. Uses a shorter initial delay than liveness since the app
+          # may be ready to serve before fully warmed up.
           readinessProbe:
             httpGet:
               path: /health

@@ -1,3 +1,11 @@
+# ==============================================================================
+# HorizontalPodAutoscaler (HPA) — Automatically scales the OrderManager
+# Deployment based on CPU utilization.
+# This resource is conditionally created when .Values.autoscaling.enabled is
+# true (e.g., in staging). It ensures the application can handle traffic
+# spikes by adding replicas, and scales down during low-traffic periods to
+# save resources.
+# ==============================================================================
 {{- if .Values.autoscaling.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -6,13 +14,21 @@ metadata:
   labels:
     {{- include "ordermanager.labels" . | nindent 4 }}
 spec:
+  # scaleTargetRef links this HPA to the OrderManager Deployment.
+  # The HPA controller adjusts the Deployment's replica count based
+  # on the metrics defined below.
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ include "ordermanager.fullname" . }}
+  # minReplicas: Floor for scaling — the HPA will never scale below this count.
+  # maxReplicas: Ceiling for scaling — prevents runaway scaling and cost overruns.
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:
+    # Scale based on average CPU utilization across all pods. When the average
+    # exceeds the target percentage, the HPA adds replicas. When it drops
+    # significantly below, replicas are removed (after a stabilization window).
     - type: Resource
       resource:
         name: cpu
