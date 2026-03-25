@@ -1,0 +1,37 @@
+replicaCount: 2
+
+image:
+  tag: staging-latest
+
+ingress:
+  hosts:
+    - host: order-service-staging.workshop.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 75
+
+env:
+  - name: ASPNETCORE_ENVIRONMENT
+    value: Staging
+  - name: ConnectionStrings__DefaultConnection
+    value: "Host=order-db;Database=orderservice_staging;Username=orderservice;Password=changeme"
+  - name: CUSTOMER_SERVICE_URL
+    value: "http://customer-service.decomposition-staging.svc.cluster.local"
+  - name: PRODUCT_SERVICE_URL
+    value: "http://product-service.decomposition-staging.svc.cluster.local"
+  - name: INVENTORY_SERVICE_URL
+    value: "http://inventory-service.decomposition-staging.svc.cluster.local"
