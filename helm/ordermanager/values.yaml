@@ -40,6 +40,8 @@ env:
     value: Production
   - name: ConnectionStrings__DefaultConnection
     value: "Data Source=/data/ordermanager.db"
+  - name: InventoryService__BaseUrl
+    value: "http://inventory-service.decomposition-dev.svc.cluster.local"
 
 persistence:
   enabled: true

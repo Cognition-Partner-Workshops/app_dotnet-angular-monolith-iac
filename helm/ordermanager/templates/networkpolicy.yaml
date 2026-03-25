@@ -39,3 +39,11 @@ spec:
       ports:
         - protocol: TCP
           port: 443
+    # Allow egress to inventory-service within the same namespace
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: inventory-service
+      ports:
+        - protocol: TCP
+          port: 8080

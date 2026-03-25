@@ -18,6 +18,12 @@ resources:
     cpu: 500m
     memory: 512Mi
 
+env:
+  - name: ASPNETCORE_ENVIRONMENT
+    value: Staging
+  - name: InventoryService__BaseUrl
+    value: "http://inventory-service.decomposition-staging.svc.cluster.local"
+
 autoscaling:
   enabled: true
   minReplicas: 2
