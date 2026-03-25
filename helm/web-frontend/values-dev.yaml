@@ -1,0 +1,23 @@
+replicaCount: 1
+
+image:
+  tag: dev-latest
+
+ingress:
+  hosts:
+    - host: ordermanager-dev.workshop.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
+
+env:
+  - name: API_GATEWAY_URL
+    value: "http://api-gateway.decomposition-dev.svc.cluster.local"
