@@ -1,0 +1,25 @@
+replicaCount: 2
+
+image:
+  tag: staging-latest
+
+ingress:
+  hosts:
+    - host: customer-service-staging.workshop.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 75
