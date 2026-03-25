@@ -1,0 +1,53 @@
+replicaCount: 1
+
+image:
+  repository: 599083837640.dkr.ecr.us-east-1.amazonaws.com/workshop/api-gateway
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+  hosts:
+    - host: api-gateway.workshop.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+env:
+  - name: ASPNETCORE_ENVIRONMENT
+    value: Production
+  - name: ORDER_SERVICE_URL
+    value: "http://order-service.default.svc.cluster.local"
+  - name: PRODUCT_SERVICE_URL
+    value: "http://product-service.default.svc.cluster.local"
+  - name: CUSTOMER_SERVICE_URL
+    value: "http://customer-service.default.svc.cluster.local"
+  - name: INVENTORY_SERVICE_URL
+    value: "http://inventory-service.default.svc.cluster.local"
+
+monitoring:
+  enabled: true
+  path: /metrics
+  port: 8080

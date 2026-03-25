@@ -1,0 +1,37 @@
+replicaCount: 2
+
+image:
+  tag: staging-latest
+
+ingress:
+  hosts:
+    - host: api-gateway-staging.workshop.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 75
+
+env:
+  - name: ASPNETCORE_ENVIRONMENT
+    value: Staging
+  - name: ORDER_SERVICE_URL
+    value: "http://order-service.decomposition-staging.svc.cluster.local"
+  - name: PRODUCT_SERVICE_URL
+    value: "http://product-service.decomposition-staging.svc.cluster.local"
+  - name: CUSTOMER_SERVICE_URL
+    value: "http://customer-service.decomposition-staging.svc.cluster.local"
+  - name: INVENTORY_SERVICE_URL
+    value: "http://inventory-service.decomposition-staging.svc.cluster.local"

@@ -1,0 +1,31 @@
+replicaCount: 1
+
+image:
+  tag: dev-latest
+
+ingress:
+  hosts:
+    - host: api-gateway-dev.workshop.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+env:
+  - name: ASPNETCORE_ENVIRONMENT
+    value: Development
+  - name: ORDER_SERVICE_URL
+    value: "http://order-service.decomposition-dev.svc.cluster.local"
+  - name: PRODUCT_SERVICE_URL
+    value: "http://product-service.decomposition-dev.svc.cluster.local"
+  - name: CUSTOMER_SERVICE_URL
+    value: "http://customer-service.decomposition-dev.svc.cluster.local"
+  - name: INVENTORY_SERVICE_URL
+    value: "http://inventory-service.decomposition-dev.svc.cluster.local"
