@@ -1,0 +1,30 @@
+replicaCount: 1
+
+image:
+  tag: dev-latest
+
+ingress:
+  hosts:
+    - host: inventory-service-dev.workshop.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+env:
+  - name: ASPNETCORE_ENVIRONMENT
+    value: Development
+  - name: ConnectionStrings__DefaultConnection
+    value: ""  # Set via sealed-secret or external-secrets operator
+  - name: PRODUCT_SERVICE_URL
+    value: "http://product-service.decomposition-dev.svc.cluster.local"
+
+persistence:
+  enabled: false
