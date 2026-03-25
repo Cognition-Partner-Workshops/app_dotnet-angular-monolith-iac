@@ -1,0 +1,49 @@
+replicaCount: 1
+
+image:
+  repository: 599083837640.dkr.ecr.us-east-1.amazonaws.com/workshop/inventory-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+  hosts:
+    - host: inventory-service.workshop.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+env:
+  - name: ASPNETCORE_ENVIRONMENT
+    value: Production
+  - name: ConnectionStrings__DefaultConnection
+    value: "Host=postgres;Database=inventory;Username=app"
+  - name: PRODUCT_SERVICE_URL
+    value: "http://product-service:80"
+
+monitoring:
+  enabled: true
+  path: /metrics
+  port: 8080
