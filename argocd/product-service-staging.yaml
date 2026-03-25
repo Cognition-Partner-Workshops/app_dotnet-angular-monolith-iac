@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: product-service-staging
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Cognition-Partner-Workshops/app_dotnet-angular-monolith-iac.git
+    targetRevision: main
+    path: helm/product-service
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-staging.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: decomposition-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
