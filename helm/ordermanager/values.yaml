@@ -46,6 +46,9 @@ persistence:
   size: 1Gi
   storageClass: gp2
 
+podDisruptionBudget:
+  minAvailable: 1
+
 monitoring:
   enabled: true
   path: /metrics
