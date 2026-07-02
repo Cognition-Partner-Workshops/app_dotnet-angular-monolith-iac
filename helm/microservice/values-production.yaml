@@ -1,0 +1,49 @@
+replicaCount: 3
+
+image:
+  tag: stable
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::599083837640:role/microservice-production
+
+strategy:
+  maxSurge: 1
+  maxUnavailable: 0
+
+probes:
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 5
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 5
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+config:
+  APP_ENV: production
+  LOG_LEVEL: warn
+  PORT: "8080"
+  ENABLE_REQUEST_LOGGING: "false"
+
+monitoring:
+  enabled: true
