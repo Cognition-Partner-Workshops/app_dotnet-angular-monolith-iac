@@ -1,0 +1,25 @@
+replicaCount: 2
+
+image:
+  tag: staging-latest
+
+ingress:
+  hosts:
+    - host: inventory-staging.workshop.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 75
