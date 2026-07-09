@@ -41,13 +41,13 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Run .NET tests
+        working-directory: app
+        run: dotnet test --verbosity normal
+
       - name: Build and push Docker image
         working-directory: app
         run: |
           docker build -f ../iac/docker/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-      - name: Run .NET tests
-        working-directory: app
-        run: dotnet test --verbosity normal
