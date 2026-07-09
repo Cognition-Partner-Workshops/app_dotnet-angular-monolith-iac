@@ -1,7 +1,8 @@
 using '../platform.bicep'
 
 param environment = 'dev'
-param registryName = 'workshopordermanagerdev'
+param registryName = 'workshopordermanager'
+param deployRegistry = true
 param keyVaultName = 'kv-ordermgr-dev'
 param vnetAddressPrefix = '10.0.0.0/16'
 param infrastructureSubnetPrefix = '10.0.0.0/23'

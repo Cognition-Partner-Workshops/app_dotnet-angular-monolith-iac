@@ -25,8 +25,11 @@ param containerAppName string = 'ordermanager'
 @description('Resource ID of the shared Container Apps managed environment (platform output).')
 param managedEnvironmentId string
 
-@description('Name of the shared ACR (must exist in this resource group).')
-param registryName string
+@description('Name of the shared ACR (parity with the single shared ECR registry).')
+param registryName string = 'workshopordermanager'
+
+@description('Resource group that holds the shared ACR (defaults to this resource group).')
+param registryResourceGroup string = resourceGroup().name
 
 @description('Name of the shared Key Vault (must exist in this resource group).')
 param keyVaultName string
@@ -55,6 +58,9 @@ param memory string = '1Gi'
 @description('Optional custom domain (maps to Helm ingress.hosts[].host).')
 param customDomainName string = ''
 
+@description('Managed environment certificate resource ID to bind to the custom domain (required when customDomainName is set).')
+param customDomainCertificateId string = ''
+
 @description('Plain environment variables: array of { name, value } (maps to non-secret Helm env).')
 param envVars array = [
   {
@@ -73,12 +79,13 @@ var tags = {
   Team: 'dotnet-angular-monolith'
 }
 
-// Well-known Azure built-in role definition IDs.
-var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+// Well-known Azure built-in role definition ID.
 var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
 
+// Read-only reference to the shared registry (may live in another resource group).
 resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' existing = {
   name: registryName
+  scope: resourceGroup(registryResourceGroup)
 }
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
@@ -92,13 +99,13 @@ resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' 
 }
 
 // AcrPull — the ACA-native replacement for the EKS node IAM role / ECR pull.
-resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, identity.id, acrPullRoleId)
-  scope: acr
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
+// Deployed as a module so the grant lands in the registry's resource group.
+module acrPull 'modules/acr-pull-role.bicep' = {
+  name: 'acr-pull-role'
+  scope: resourceGroup(registryResourceGroup)
+  params: {
+    registryName: registryName
     principalId: identity.properties.principalId
-    principalType: 'ServicePrincipal'
   }
 }
 
@@ -128,6 +135,7 @@ module containerApp 'modules/containerapp.bicep' = {
     cpu: cpu
     memory: memory
     customDomainName: customDomainName
+    customDomainCertificateId: customDomainCertificateId
     envVars: envVars
     keyVaultRefs: [
       {

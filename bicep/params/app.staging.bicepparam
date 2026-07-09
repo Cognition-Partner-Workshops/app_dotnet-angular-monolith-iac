@@ -4,7 +4,9 @@ param environment = 'staging'
 param containerAppName = 'ordermanager'
 // Replace with the managedEnvironmentId output from the platform deployment.
 param managedEnvironmentId = '/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.App/managedEnvironments/workshop-staging'
-param registryName = 'workshopordermanagerstg'
+param registryName = 'workshopordermanager'
+// The shared registry lives in the dev platform resource group.
+param registryResourceGroup = 'rg-ordermanager-dev'
 param keyVaultName = 'kv-ordermgr-stg'
 param imageRepository = 'workshop/ordermanager'
 param imageTag = 'staging-latest'

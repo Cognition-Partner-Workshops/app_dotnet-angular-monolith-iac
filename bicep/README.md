@@ -35,6 +35,12 @@ team); `app.bicep` mirrors the Helm chart + ArgoCD Application (owned by the app
 team). They are kept in one repo here to make the AWS→Azure translation
 self-contained.
 
+The ACR is a **single shared registry** (`workshopordermanager`) across all
+environments — parity with the single shared ECR the Helm values pointed at, and
+the same registry name the CI pipeline pushes to. The dev platform stack creates
+it (`deployRegistry = true`); other environments reuse it (`deployRegistry =
+false`) and their app stacks reference it via `registryResourceGroup`.
+
 ## Deploy
 
 ```bash

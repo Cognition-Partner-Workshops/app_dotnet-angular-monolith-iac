@@ -22,8 +22,11 @@ param environment string
 @description('Azure region for all resources.')
 param location string = resourceGroup().location
 
-@description('Globally unique ACR name (maps to the shared ECR registry).')
-param registryName string
+@description('Globally unique ACR name. Shared across environments (parity with the single shared ECR registry).')
+param registryName string = 'workshopordermanager'
+
+@description('Create the shared ACR in this deployment. Set false for environments that reuse a registry created by another environment stack.')
+param deployRegistry bool = true
 
 @description('Globally unique Key Vault name (maps to Secrets Manager).')
 param keyVaultName string
@@ -65,7 +68,7 @@ module acaEnvironment 'modules/aca-environment.bicep' = {
   }
 }
 
-module acr 'modules/acr.bicep' = {
+module acr 'modules/acr.bicep' = if (deployRegistry) {
   name: 'acr'
   params: {
     registryName: registryName
@@ -100,7 +103,7 @@ output managedEnvironmentId string = acaEnvironment.outputs.managedEnvironmentId
 output managedEnvironmentDefaultDomain string = acaEnvironment.outputs.defaultDomain
 
 @description('ACR login server.')
-output acrLoginServer string = acr.outputs.loginServer
+output acrLoginServer string = deployRegistry ? acr!.outputs.loginServer : '${toLower(registryName)}.azurecr.io'
 
 @description('Key Vault URI.')
 output keyVaultUri string = keyVault.outputs.vaultUri

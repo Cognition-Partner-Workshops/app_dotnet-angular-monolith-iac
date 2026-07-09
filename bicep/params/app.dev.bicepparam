@@ -4,7 +4,7 @@ param environment = 'dev'
 param containerAppName = 'ordermanager'
 // Replace with the managedEnvironmentId output from the platform deployment.
 param managedEnvironmentId = '/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.App/managedEnvironments/workshop-dev'
-param registryName = 'workshopordermanagerdev'
+param registryName = 'workshopordermanager'
 param keyVaultName = 'kv-ordermgr-dev'
 param imageRepository = 'workshop/ordermanager'
 param imageTag = 'dev-latest'

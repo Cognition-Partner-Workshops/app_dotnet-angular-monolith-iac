@@ -42,6 +42,9 @@ param externalIngress bool = true
 @description('Optional custom domain bound to the ingress (maps to Helm ingress.hosts[].host). Empty = default env domain only.')
 param customDomainName string = ''
 
+@description('Resource ID of the managed environment certificate to bind to the custom domain. Required when customDomainName is set (SNI needs a cert).')
+param customDomainCertificateId string = ''
+
 @description('Minimum replicas (maps to Helm replicaCount / autoscaling.minReplicas).')
 param minReplicas int = 1
 
@@ -114,7 +117,8 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         customDomains: empty(customDomainName) ? [] : [
           {
             name: customDomainName
-            bindingType: 'SniEnabled'
+            bindingType: empty(customDomainCertificateId) ? 'Disabled' : 'SniEnabled'
+            certificateId: empty(customDomainCertificateId) ? null : customDomainCertificateId
           }
         ]
       }
