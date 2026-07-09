@@ -1,0 +1,76 @@
+# OrderManager IaC — Azure (Bicep)
+
+Azure delivery for the OrderManager monolith, migrated from AWS. The application
+code is unchanged; only the packaging, deployment target, and shared platform
+infrastructure moved from AWS to Azure.
+
+| Layer | Before (AWS) | After (Azure) |
+|-------|--------------|---------------|
+| Image build/push | GitHub Actions → ECR | GitHub Actions → ACR (`ci/build-push.yaml`) |
+| App deploy | Helm chart + ArgoCD on EKS | Container App (`bicep/app.bicep`) |
+| Shared compute | EKS cluster (Terraform) | Container Apps environment (`bicep/platform.bicep`) |
+| Registry | ECR (Terraform) | ACR (`bicep/modules/acr.bicep`) |
+| Secrets | Secrets Manager | Key Vault (`bicep/modules/keyvault.bicep`) |
+| DNS | Route 53 | Azure DNS (`bicep/modules/dns.bicep`) |
+
+## Layout
+
+```
+bicep/
+├── platform.bicep            # shared platform: ACA env + ACR + Key Vault + DNS
+├── app.bicep                 # OrderManager Container App + identity + role grants
+├── modules/
+│   ├── aca-environment.bicep # VNet + Log Analytics + managed environment (EKS)
+│   ├── acr.bicep             # Azure Container Registry (ECR)
+│   ├── keyvault.bicep        # Key Vault (Secrets Manager)
+│   ├── dns.bicep             # Azure DNS zone (Route 53)
+│   └── containerapp.bicep    # Container App (Helm chart)
+└── params/
+    ├── platform.{dev,staging}.bicepparam
+    └── app.{dev,staging}.bicepparam
+```
+
+`platform.bicep` mirrors the shared-services Terraform (owned by the platform
+team); `app.bicep` mirrors the Helm chart + ArgoCD Application (owned by the app
+team). They are kept in one repo here to make the AWS→Azure translation
+self-contained.
+
+## Deploy
+
+```bash
+RG=rg-ordermanager-dev
+az group create -n "$RG" -l eastus
+
+# 1. Shared platform (ACA environment, ACR, Key Vault)
+az deployment group create -g "$RG" \
+  -f bicep/platform.bicep -p bicep/params/platform.dev.bicepparam
+
+# 2. Seed the DB connection string into Key Vault (replaces the inline Helm env value)
+az keyvault secret set --vault-name kv-ordermgr-dev \
+  --name ordermanager-db-connectionstring \
+  --value 'Data Source=/data/ordermanager.db'
+
+# 3. App (Container App) — pass the managedEnvironmentId output from step 1
+az deployment group create -g "$RG" \
+  -f bicep/app.bicep -p bicep/params/app.dev.bicepparam
+```
+
+## Helm value → Container App mapping
+
+| Helm value | Container App |
+|------------|---------------|
+| `replicaCount` / `autoscaling.minReplicas` | `scale.minReplicas` |
+| `autoscaling.maxReplicas` | `scale.maxReplicas` |
+| `autoscaling.targetCPUUtilizationPercentage` | KEDA `cpu` scale rule (`Utilization`) |
+| `image.repository` / `image.tag` | `template.containers[].image` (ACR) |
+| `service.targetPort` | `ingress.targetPort` |
+| `ingress.enabled` / `ingress.hosts[].host` | `ingress.external` / `ingress.customDomains` |
+| `livenessProbe` / `readinessProbe` (`/health`) | `template.containers[].probes` |
+| `resources.limits.cpu/memory` | `template.containers[].resources` |
+| `env` (inline) | `template.containers[].env` (`value`) |
+| `env` (secret) | Key Vault reference → `secret` + `env.secretRef` |
+| `monitoring` / ServiceMonitor | managed environment → Log Analytics |
+| `persistence` (PVC) | Azure Files mount on the managed environment* |
+| `networkPolicy` | managed environment network isolation* |
+
+\* Not provisioned in this initial cut; see notes in the PR description.
