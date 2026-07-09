@@ -23,7 +23,7 @@ jobs:
       - name: Checkout app code
         uses: actions/checkout@v4
         with:
-          repository: Cognition-Partner-Workshops/app_dotnet-angular-monolith
+          repository: Cognition-Partner-Workshops/ordermanager-monolith
           path: app
 
       - name: Checkout IaC

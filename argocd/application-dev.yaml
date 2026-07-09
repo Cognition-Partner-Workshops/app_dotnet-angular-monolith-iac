@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Cognition-Partner-Workshops/app_dotnet-angular-monolith-iac.git
+    repoURL: https://github.com/Cognition-Partner-Workshops/ordermanager-iac.git
     targetRevision: main
     path: helm/ordermanager
     helm:
