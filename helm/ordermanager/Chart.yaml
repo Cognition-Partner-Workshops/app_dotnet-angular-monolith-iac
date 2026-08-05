@@ -1,6 +1,0 @@
-apiVersion: v2
-name: ordermanager
-description: Helm chart for the OrderManager monolith application
-type: application
-version: 0.1.0
-appVersion: "1.0.0"

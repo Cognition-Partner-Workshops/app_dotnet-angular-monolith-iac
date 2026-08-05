@@ -1,4 +1,4 @@
-name: Build and Push to ECR
+name: Build and Push to ACR
 
 on:
   push:
@@ -7,9 +7,9 @@ on:
     branches: [main]
 
 env:
-  AWS_REGION: us-east-1
-  ECR_REGISTRY: 599083837640.dkr.ecr.us-east-1.amazonaws.com
-  ECR_REPOSITORY: workshop/ordermanager
+  ACR_NAME: workshopordermanager
+  ACR_REGISTRY: workshopordermanager.azurecr.io
+  ACR_REPOSITORY: workshop/ordermanager
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
@@ -31,22 +31,22 @@ jobs:
         with:
           path: iac
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Azure login
+        uses: azure/login@v2
         with:
-          role-to-assume: arn:aws:iam::599083837640:role/github-actions-ecr-push
-          aws-region: ${{ env.AWS_REGION }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Login to Azure Container Registry
+        run: az acr login --name $ACR_NAME
 
       - name: Build and push Docker image
         working-directory: app
         run: |
-          docker build -f ../iac/docker/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker build -f ../iac/docker/Dockerfile -t $ACR_REGISTRY/$ACR_REPOSITORY:$IMAGE_TAG -t $ACR_REGISTRY/$ACR_REPOSITORY:latest .
+          docker push $ACR_REGISTRY/$ACR_REPOSITORY:$IMAGE_TAG
+          docker push $ACR_REGISTRY/$ACR_REPOSITORY:latest
 
       - name: Run .NET tests
         working-directory: app
