@@ -51,10 +51,13 @@ az group create -n "$RG" -l eastus
 az deployment group create -g "$RG" \
   -f bicep/platform.bicep -p bicep/params/platform.dev.bicepparam
 
-# 2. Seed the DB connection string into Key Vault (replaces the inline Helm env value)
+# 2. Seed the DB connection string into Key Vault (replaces the inline Helm env value).
+#    Container-relative path: the SQLite file lives in the container filesystem and is
+#    ephemeral (lost on restart/scale, and per-replica when minReplicas > 1). Point this
+#    at a mounted path only once an Azure Files volume is added — see Persistence below.
 az keyvault secret set --vault-name kv-ordermgr-dev \
   --name ordermanager-db-connectionstring \
-  --value 'Data Source=/data/ordermanager.db'
+  --value 'Data Source=ordermanager.db'
 
 # 3. App (Container App) — pass the managedEnvironmentId output from step 1
 az deployment group create -g "$RG" \
@@ -80,3 +83,18 @@ az deployment group create -g "$RG" \
 | `networkPolicy` | managed environment network isolation* |
 
 \* Not provisioned in this initial cut; see notes in the PR description.
+
+## Persistence
+
+The Helm chart set `persistence.enabled: true` with a `gp2` 1Gi volume, but the
+chart shipped **no PVC template and no `volumeMount`** — the value was never
+wired up, so `Data Source=/data/ordermanager.db` from `values.yaml` had no
+backing volume on EKS either. The Bicep translation does not carry that dead
+config forward: the seeded connection string uses a container-relative path, and
+the SQLite file is ephemeral.
+
+To make the database durable, add an Azure Files share plus a
+`Microsoft.App/managedEnvironments/storages` resource, mount it as a volume in
+`modules/containerapp.bicep`, and point the Key Vault secret at the mount path.
+Note SQLite over SMB is not safe for concurrent writers, so this also requires
+pinning the app to a single replica (or moving to Azure SQL / PostgreSQL).
